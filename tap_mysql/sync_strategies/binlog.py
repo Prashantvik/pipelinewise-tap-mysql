@@ -95,10 +95,25 @@ def verify_gtid_config(mysql_conn: MySQLConnection):
                 raise Exception('Unable to replicate binlog stream because GTID mode is not enabled.')
 
 
+def _is_mysql_84_or_higher(mysql_conn):
+    with connect_with_backoff(mysql_conn) as open_conn:
+        with open_conn.cursor() as cur:
+            cur.execute("SELECT VERSION()")
+            result = cur.fetchone()
+            version_str = result[0]
+            parts = version_str.split(".")
+            try:
+                major, minor = int(parts[0]), int(parts[1])
+                return (major, minor) >= (8, 4)
+            except (IndexError, ValueError):
+                return False
+
+
 def fetch_current_log_file_and_pos(mysql_conn):
     with connect_with_backoff(mysql_conn) as open_conn:
         with open_conn.cursor() as cur:
-            cur.execute("SHOW MASTER STATUS")
+            query = "SHOW BINARY LOG STATUS" if _is_mysql_84_or_higher(mysql_conn) else "SHOW MASTER STATUS"
+            cur.execute(query)
 
             result = cur.fetchone()
 

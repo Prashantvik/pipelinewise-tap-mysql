@@ -1800,6 +1800,7 @@ class TestBinlogSyncStrategy(TestCase):
         mysql_con = MagicMock(spec_set=MySQLConnection).return_value
         cur_mock = MagicMock(spec_set=Cursor).return_value
         cur_mock.__enter__.return_value.fetchone.side_effect = [
+            ('8.4.8',),
             ['binlog.000033', 345, ''],
         ]
 
@@ -1814,6 +1815,32 @@ class TestBinlogSyncStrategy(TestCase):
         connect_with_backoff.assert_called_with(mysql_con)
         cur_mock.__enter__.return_value.execute.assert_has_calls(
             [
+                call('SELECT VERSION()'),
+                call('SHOW BINARY LOG STATUS'),
+            ]
+        )
+
+    @patch('tap_mysql.sync_strategies.binlog.connect_with_backoff')
+    def test_fetch_current_log_file_and_pos_success_pre_84(self, connect_with_backoff):
+        mysql_con = MagicMock(spec_set=MySQLConnection).return_value
+        cur_mock = MagicMock(spec_set=Cursor).return_value
+        cur_mock.__enter__.return_value.fetchone.side_effect = [
+            ('8.0.32',),
+            ['binlog.000033', 345, ''],
+        ]
+
+        mysql_con.__enter__.return_value.cursor.return_value = cur_mock
+
+        connect_with_backoff.return_value = mysql_con
+
+        result = binlog.fetch_current_log_file_and_pos(mysql_con)
+
+        self.assertEqual(result, ('binlog.000033', 345))
+
+        connect_with_backoff.assert_called_with(mysql_con)
+        cur_mock.__enter__.return_value.execute.assert_has_calls(
+            [
+                call('SELECT VERSION()'),
                 call('SHOW MASTER STATUS'),
             ]
         )
@@ -1823,7 +1850,8 @@ class TestBinlogSyncStrategy(TestCase):
         mysql_con = MagicMock(spec_set=MySQLConnection).return_value
         cur_mock = MagicMock(spec_set=Cursor).return_value
         cur_mock.__enter__.return_value.fetchone.side_effect = [
-            None
+            ('8.4.8',),
+            None,
         ]
 
         mysql_con.__enter__.return_value.cursor.return_value = cur_mock
@@ -1838,7 +1866,8 @@ class TestBinlogSyncStrategy(TestCase):
         connect_with_backoff.assert_called_with(mysql_con)
         cur_mock.__enter__.return_value.execute.assert_has_calls(
             [
-                call('SHOW MASTER STATUS'),
+                call('SELECT VERSION()'),
+                call('SHOW BINARY LOG STATUS'),
             ]
         )
 
