@@ -110,9 +110,9 @@ def _is_mysql_84_or_higher(mysql_conn):
 
 
 def fetch_current_log_file_and_pos(mysql_conn):
+    query = "SHOW BINARY LOG STATUS" if _is_mysql_84_or_higher(mysql_conn) else "SHOW MASTER STATUS"
     with connect_with_backoff(mysql_conn) as open_conn:
         with open_conn.cursor() as cur:
-            query = "SHOW BINARY LOG STATUS" if _is_mysql_84_or_higher(mysql_conn) else "SHOW MASTER STATUS"
             cur.execute(query)
 
             result = cur.fetchone()
