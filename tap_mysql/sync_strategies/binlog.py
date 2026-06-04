@@ -98,7 +98,18 @@ def verify_gtid_config(mysql_conn: MySQLConnection):
 def fetch_current_log_file_and_pos(mysql_conn):
     with connect_with_backoff(mysql_conn) as open_conn:
         with open_conn.cursor() as cur:
-            cur.execute("SHOW MASTER STATUS")
+            cur.execute("SELECT VERSION()")
+            version_str = cur.fetchone()[0]
+
+        parts = version_str.split(".")
+        try:
+            is_84_or_higher = (int(parts[0]), int(parts[1])) >= (8, 4)
+        except (IndexError, ValueError):
+            is_84_or_higher = False
+
+        query = "SHOW BINARY LOG STATUS" if is_84_or_higher else "SHOW MASTER STATUS"
+        with open_conn.cursor() as cur:
+            cur.execute(query)
 
             result = cur.fetchone()
 
